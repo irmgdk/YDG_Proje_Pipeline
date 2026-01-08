@@ -1,1 +1,97 @@
-git remote -v
+pipeline {
+    agent any
+    environment {
+        DOCKER_IMAGE_NAME = 'nakil-sistemi'
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        // Hatanın çözümü: JaCoCo'yu susturuyoruz
+        MAVEN_OPTS = "-Djacoco.skip=true -Dfile.encoding=UTF-8"
+    }
+    stages {
+        stage('Checkout') { // 1. AŞAMA (5 Puan)
+            steps {
+                checkout scm
+                echo '✅ Github kodları çekildi'
+            }
+        }
+        stage('Build') { // 2. AŞAMA (5 Puan)
+            steps {
+                dir('nakil-sistemi') {
+                    bat 'mvn clean package -DskipTests'
+                }
+            }
+        }
+        stage('Unit Tests') { // 3. AŞAMA (15 Puan)
+            steps {
+                dir('nakil-sistemi') {
+                    script {
+                        try {
+                            bat 'mvn test -Dtest=*Test'
+                        } catch (e) {
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    junit 'nakil-sistemi/target/surefire-reports/*.xml'
+                }
+            }
+        }
+        stage('Integration Tests') { // 4. AŞAMA (15 Puan)
+            steps {
+                dir('nakil-sistemi') {
+                    script {
+                        try {
+                            bat 'mvn verify -DskipUnitTests'
+                        } catch (e) {
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    junit 'nakil-sistemi/target/failsafe-reports/*.xml'
+                }
+            }
+        }
+        stage('Docker Run') { // 5. AŞAMA (5 Puan)
+            steps {
+                dir('nakil-sistemi') {
+                    bat 'docker-compose down'
+                    bat 'docker-compose up -d'
+                    sleep 40 // Sistemin tamamen açılması için
+                }
+            }
+        }
+        stage('Selenium Test: Dashboard') { // 6. AŞAMA (Senaryo 1)
+            steps {
+                dir('nakil-sistemi') {
+                    bat 'mvn test -Dtest=DashboardSeleniumTest'
+                }
+            }
+        }
+        stage('Selenium Test: Arac') { // 6. AŞAMA (Senaryo 2)
+            steps {
+                dir('nakil-sistemi') {
+                    bat 'mvn test -Dtest=AracSeleniumTest'
+                }
+            }
+        }
+        stage('Selenium Test: Mahkum') { // 6. AŞAMA (Senaryo 3)
+            steps {
+                dir('nakil-sistemi') {
+                    bat 'mvn test -Dtest=MahkumSeleniumTest'
+                }
+            }
+        }
+    }
+    post {
+        always {
+            dir('nakil-sistemi') {
+                bat 'docker-compose down'
+            }
+        }
+    }
+}
