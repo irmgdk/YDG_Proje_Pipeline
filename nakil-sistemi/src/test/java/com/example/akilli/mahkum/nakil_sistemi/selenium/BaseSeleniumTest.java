@@ -3,16 +3,18 @@ package com.example.akilli.mahkum.nakil_sistemi.selenium;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.support.ui.WebDriverWait;git add .
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Duration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class BaseSeleniumTest {
+public abstract class BaseSeleniumTest { // abstract olması daha doğrudur
 
     protected WebDriver driver;
     protected WebDriverWait wait;
@@ -23,22 +25,26 @@ public class BaseSeleniumTest {
     protected String baseUrl;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws MalformedURLException {
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--start-maximized");
-        options.addArguments("--disable-notifications");
-        options.addArguments("--disable-popup-blocking");
-        // Uncomment for headless testing
-        // options.addArguments("--headless");
-        // options.addArguments("--disable-gpu");
 
-        driver = new ChromeDriver(options);
-        wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        // Jenkins/Docker ortamı için kritik ayarlar
+        options.addArguments("--headless=new"); // Ekransız mod
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--window-size=1920,1080");
 
-        baseUrl = "http://localhost:" + port + "/mahkum-nakil";
+        // docker-compose dosyanızdaki selenium-hub servisine bağlanıyoruz
+        // Not: Jenkins yerelinde çalışıyorsa localhost, docker network içindeyse servis adı kullanılır.
+        // Genellikle localhost:4444 üzerinden docker'daki hub'a erişilir.
+        driver = new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"), options);
 
-        // Maximize window and set implicit wait
-        driver.manage().window().maximize();
+        wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+
+        // ÖNEMLİ: Uygulamanız docker-compose'da 8080 portunda açılıyor
+        // localhost yerine uygulama konteyner ismini veya direkt localhost:8080 kullanmalısınız
+        baseUrl = "http://localhost:8080/mahkum-nakil";
+
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
     }
 
