@@ -2,27 +2,38 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15  # Alpine yerine standart sürüm
     container_name: mahkum-nakil-db
     environment:
       POSTGRES_DB: mahkum_nakil_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: irem123
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-      POSTGRES_HOST_AUTH_METHOD: "md5"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      TZ: Europe/Istanbul  # Türkiye saat dilimi
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # init.sql'i KALDIR (Hibernate otomatik oluşturacak)
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - nakil-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d mahkum_nakil_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 40s
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+    restart: unless-stopped
 
   app:
     build: .
@@ -31,27 +42,51 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mahkum_nakil_db
+      # Veritabanı bağlantısı
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mahkum_nakil_db?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: irem123
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+
+      # JPA/Hibernate ayarları
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update  # Tabloları otomatik oluştur/güncelle
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_JDBC_BATCH_SIZE: 20
+      SPRING_JPA_PROPERTIES_HIBERNATE_ORDER_INSERTS: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_ORDER_UPDATES: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: true
+
+      # Spring ayarları
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8080
       SERVER_SERVLET_CONTEXT_PATH: /mahkum-nakil
+      SERVER_TOMCAT_CONNECTION_TIMEOUT: 60000
+
+      # Loglama
       SPRING_JPA_SHOW_SQL: "false"
-      JAVA_OPTS: "-Xmx512m -Xms256m -Djava.security.egd=file:/dev/./urandom"
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: DEBUG
+      LOGGING_LEVEL_ORG_HIBERNATE_TYPE_DESCRIPTOR_SQL: TRACE
+
+      # Java ayarları
+      JAVA_OPTS: "-Xmx512m -Xms256m -Djava.security.egd=file:/dev/./urandom -Duser.timezone=UTC -Dfile.encoding=UTF-8"
+
+      # Hibernate debug (isteğe bağlı)
+      SPRING_JPA_PROPERTIES_HIBERNATE_GENERATE_STATISTICS: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_CACHE_USE_SECOND_LEVEL_CACHE: "false"
     ports:
       - "8080:8080"
     networks:
       - nakil-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/mahkum-nakil/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/mahkum-nakil/actuator/health || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 5
-      start_period: 60s
+      start_period: 90s  # PostgreSQL'in tam başlaması için daha uzun süre
     restart: unless-stopped
+    # Debug için stdout'u açık tut
+    stdin_open: true
+    tty: true
 
   selenium-hub:
     image: selenium/hub:4.15.0
@@ -65,11 +100,12 @@ services:
     environment:
       SE_SESSION_REQUEST_TIMEOUT: 300
       SE_SESSION_RETRY_INTERVAL: 5
+      JAVA_OPTS: "-Duser.timezone=Europe/Istanbul"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4444/wd/hub/status || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
   chrome-node:
     image: selenium/node-chrome:4.15.0
@@ -88,16 +124,17 @@ services:
       NODE_MAX_INSTANCES: 2
       NODE_MAX_SESSION: 2
       SE_VNC_NO_PASSWORD: 1
+      TZ: Europe/Istanbul
     shm_size: "2gb"
     volumes:
       - /dev/shm:/dev/shm
     networks:
       - nakil-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5555/status"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5555/status || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
 volumes:
   postgres_data:
