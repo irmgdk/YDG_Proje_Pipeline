@@ -7,18 +7,14 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 
 import java.net.URL;
 import java.time.Duration;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class BaseSeleniumTest {
-
-    @LocalServerPort
-    protected int port;
+    // @LocalServerPort KALDIRILDI - artık gerek yok
+    // @SpringBootTest KALDIRILDI - Selenium testleri Spring Boot başlatmamalı
 
     protected WebDriver driver;
     protected WebDriverWait wait;
@@ -34,7 +30,6 @@ public abstract class BaseSeleniumTest {
         options.addArguments("--window-size=1920,1080");
 
         try {
-            // Docker'daki Selenium Grid'e bağlan
             String hubUrl = System.getProperty("selenium.grid.url", "http://localhost:4444/wd/hub");
             String appUrl = System.getProperty("app.url", "http://localhost:8080/mahkum-nakil");
 
@@ -47,7 +42,6 @@ public abstract class BaseSeleniumTest {
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(15));
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(60));
 
-            // Docker'daki uygulamanın URL'sini kullan
             baseUrl = appUrl;
             System.out.println("✅ WebDriver başlatıldı. Base URL: " + baseUrl);
         } catch (Exception e) {
@@ -72,7 +66,6 @@ public abstract class BaseSeleniumTest {
         String fullUrl = baseUrl + path;
         System.out.println("🌐 Sayfaya gidiliyor: " + fullUrl);
 
-        // Retry mekanizması ekle
         for (int i = 1; i <= 3; i++) {
             try {
                 driver.get(fullUrl);
