@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.support.ui.WebDriverWait;git add .
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
@@ -14,7 +14,7 @@ import java.net.URL;
 import java.time.Duration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public abstract class BaseSeleniumTest { // abstract olması daha doğrudur
+public abstract class BaseSeleniumTest {
 
     protected WebDriver driver;
     protected WebDriverWait wait;
@@ -27,22 +27,15 @@ public abstract class BaseSeleniumTest { // abstract olması daha doğrudur
     @BeforeEach
     public void setUp() throws MalformedURLException {
         ChromeOptions options = new ChromeOptions();
-
-        // Jenkins/Docker ortamı için kritik ayarlar
-        options.addArguments("--headless=new"); // Ekransız mod
+        options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
 
-        // docker-compose dosyanızdaki selenium-hub servisine bağlanıyoruz
-        // Not: Jenkins yerelinde çalışıyorsa localhost, docker network içindeyse servis adı kullanılır.
-        // Genellikle localhost:4444 üzerinden docker'daki hub'a erişilir.
+        // Jenkins docker-compose içindeki selenium-hub'a bağlanır
         driver = new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"), options);
 
         wait = new WebDriverWait(driver, Duration.ofSeconds(20));
-
-        // ÖNEMLİ: Uygulamanız docker-compose'da 8080 portunda açılıyor
-        // localhost yerine uygulama konteyner ismini veya direkt localhost:8080 kullanmalısınız
         baseUrl = "http://localhost:8080/mahkum-nakil";
 
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
