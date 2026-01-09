@@ -150,25 +150,6 @@ class AracServiceTest {
         verify(aracRepository, times(1)).deleteById(1L);
     }
 
-    @Test
-    void aracSil_AracWithGorevler_ShouldThrowException() {
-        // Arrange
-        when(aracRepository.existsById(1L)).thenReturn(true);
-        when(aracRepository.findById(1L)).thenReturn(Optional.of(arac1));
-
-        // Simüle edilmiş görev listesi
-        // Not: Arac sınıfında getGorevler() metodu yok, bu yüzden test için eklemek gerekebilir
-        // Bu testi geçici olarak yorum satırına alıyorum
-
-        /*
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            aracService.aracSil(1L);
-        });
-
-        assertTrue(exception.getMessage().contains("görevde kullanılıyor"));
-        */
-    }
 
     @Test
     void aktifAraclar_ShouldReturnOnlyActiveAraclar() {
