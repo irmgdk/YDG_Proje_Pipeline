@@ -13,7 +13,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import java.net.URL;
 import java.time.Duration;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class BaseSeleniumTest {
 
