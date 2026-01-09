@@ -13,8 +13,6 @@ import java.time.Duration;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class BaseSeleniumTest {
-    // @LocalServerPort KALDIRILDI - artık gerek yok
-    // @SpringBootTest KALDIRILDI - Selenium testleri Spring Boot başlatmamalı
 
     protected WebDriver driver;
     protected WebDriverWait wait;
@@ -31,7 +29,11 @@ public abstract class BaseSeleniumTest {
 
         try {
             String hubUrl = System.getProperty("selenium.grid.url", "http://localhost:4444/wd/hub");
-            String appUrl = System.getProperty("app.url", "http://localhost:8080/mahkum-nakil");
+
+            // Docker container'dan host'a erişmek için host.docker.internal kullan
+            // Eğer bu çalışmazsa, 172.17.0.1 (Docker default gateway) veya host IP kullan
+            String defaultAppUrl = "http://host.docker.internal:8080/mahkum-nakil";
+            String appUrl = System.getProperty("app.url", defaultAppUrl);
 
             System.out.println("🎯 Selenium Grid URL: " + hubUrl);
             System.out.println("🎯 Hedef Uygulama URL: " + appUrl);

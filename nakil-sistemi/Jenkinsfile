@@ -8,7 +8,8 @@ pipeline {
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         MAVEN_OPTS = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
         SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
-        APP_URL = "http://localhost:8080/mahkum-nakil"
+        // Docker container'dan host'a erişim için host.docker.internal kullan
+        APP_URL = "http://host.docker.internal:8080/mahkum-nakil"
     }
 
     stages {
@@ -197,16 +198,16 @@ pipeline {
                             '''
 
                             echo '🎯 Docker uygulaması test edilecek...'
-                            echo '   • Uygulama URL: http://localhost:8080/mahkum-nakil'
+                            echo '   • Uygulama URL: http://host.docker.internal:8080/mahkum-nakil'
                             echo '   • Selenium Grid: http://localhost:4444/wd/hub'
 
                             // Maven Selenium testlerini çalıştır
+                            // Spring Boot context'i başlatmadan çalıştır (webEnvironment.NONE)
                             bat '''
                                 mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false ^
                                   -Dselenium.grid.url=http://localhost:4444/wd/hub ^
-                                  -Dapp.url=http://localhost:8080/mahkum-nakil ^
-                                  -DskipSeleniumTests=false ^
-                                  -Dspring.profiles.active=test ^
+                                  -Dapp.url=http://host.docker.internal:8080/mahkum-nakil ^
+                                  -Dspring.main.web-application-type=none ^
                                   -DskipITs=true ^
                                   -DskipUTs=true
                             '''
