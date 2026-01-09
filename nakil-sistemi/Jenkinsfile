@@ -1,5 +1,8 @@
 pipeline {
     agent any
+      tools {
+            jdk 'JDK'
+        }
     environment {
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
