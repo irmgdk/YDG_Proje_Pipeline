@@ -26,6 +26,7 @@
 		<junit.version>4.9</junit.version>
 		<selenium.version>4.15.0</selenium.version>
 		<webdrivermanager.version>5.6.2</webdrivermanager.version>
+		<jacoco.skip>true</jacoco.skip>
 	</properties>
 
 	<dependencies>
@@ -108,7 +109,6 @@
 
 		<!-- H2 Database (Test için) -->
 		<!-- TestContainers -->
-
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>postgresql</artifactId>
@@ -140,7 +140,7 @@
 		<dependency>
 			<groupId>io.github.bonigarcia</groupId>
 			<artifactId>webdrivermanager</artifactId>
-			<version>${webdrivermanager.version}</version>
+			<version>5.6.4</version>
 			<scope>test</scope>
 		</dependency>
 
@@ -152,7 +152,8 @@
 		</dependency>
 	</dependencies>
 
-	<build><plugins>
+	<build>
+		<plugins>
 			<!-- Spring Boot Maven Plugin -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -172,6 +173,11 @@
 						<exclude>**/*IT.java</exclude>
 						<exclude>**/*SeleniumTest.java</exclude>
 					</excludes>
+					<systemPropertyVariables>
+						<jacoco.skip>${jacoco.skip}</jacoco.skip>
+						<file.encoding>UTF-8</file.encoding>
+					</systemPropertyVariables>
+					<argLine>-Xmx1024m -Dfile.encoding=UTF-8</argLine>
 				</configuration>
 			</plugin>
 
@@ -180,17 +186,22 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<version>3.1.2</version>
+				<configuration>
+					<includes>
+						<include>**/*IT.java</include>
+					</includes>
+					<systemPropertyVariables>
+						<jacoco.skip>${jacoco.skip}</jacoco.skip>
+						<file.encoding>UTF-8</file.encoding>
+					</systemPropertyVariables>
+					<argLine>-Xmx1024m -Dfile.encoding=UTF-8</argLine>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>
 							<goal>integration-test</goal>
 							<goal>verify</goal>
 						</goals>
-						<configuration>
-							<includes>
-								<include>**/*IT.java</include>
-							</includes>
-						</configuration>
 					</execution>
 				</executions>
 			</plugin>
@@ -200,6 +211,9 @@
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 				<version>0.8.10</version>
+				<configuration>
+					<skip>${jacoco.skip}</skip>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>

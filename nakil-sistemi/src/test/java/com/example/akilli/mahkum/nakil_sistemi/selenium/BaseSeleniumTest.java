@@ -2,43 +2,44 @@ package com.example.akilli.mahkum.nakil_sistemi.selenium;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public abstract class BaseSeleniumTest {
-
-    protected WebDriver driver;
-    protected WebDriverWait wait;
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class BaseSeleniumTest {
 
     @LocalServerPort
     protected int port;
 
-    protected String baseUrl;
+    protected WebDriver driver;
 
     @BeforeEach
-    public void setUp() throws MalformedURLException {
+    public void setUp() {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
 
-        // Jenkins docker-compose içindeki selenium-hub'a bağlanır
-        driver = new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"), options);
-
-        wait = new WebDriverWait(driver, Duration.ofSeconds(20));
-        baseUrl = "http://localhost:8080/mahkum-nakil";
-
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        try {
+            // Docker içinden localhost'a bağlan
+            String hubUrl = "http://localhost:4444/wd/hub";
+            driver = new RemoteWebDriver(new URL(hubUrl), options);
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+        } catch (Exception e) {
+            System.err.println("Selenium bağlantı hatası: " + e.getMessage());
+            throw new RuntimeException("Selenium başlatılamadı", e);
+        }
     }
 
     @AfterEach
@@ -48,7 +49,7 @@ public abstract class BaseSeleniumTest {
         }
     }
 
-    protected void navigateTo(String path) {
-        driver.get(baseUrl + path);
+    protected String getBaseUrl() {
+        return "http://localhost:" + port;
     }
 }

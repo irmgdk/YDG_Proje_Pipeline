@@ -7,6 +7,7 @@ pipeline {
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         MAVEN_OPTS = "-Djacoco.skip=true -Dfile.encoding=UTF-8"
+        MAVEN_SETTINGS = "-s .mvn/settings.xml"
     }
 
     stages {
@@ -20,7 +21,9 @@ pipeline {
         stage('Build') {
             steps {
                 dir('nakil-sistemi') {
-                    bat 'mvn clean package -DskipTests'
+                    script {
+                        bat "mvn clean package -DskipTests ${MAVEN_SETTINGS}"
+                    }
                 }
             }
         }
@@ -30,11 +33,11 @@ pipeline {
                 dir('nakil-sistemi') {
                     script {
                         try {
-                            // Sadece unit testleri çalıştır
-                            bat 'mvn test -Dtest="*Test" -DskipITs -DskipSeleniumTests'
+                            echo "📝 Unit Testleri çalıştırılıyor..."
+                            bat "mvn test -Dtest=\"*Test\" -DskipITs -DskipSeleniumTests ${MAVEN_SETTINGS}"
                         } catch (e) {
+                            echo "⚠️ Unit Tests failed: ${e.message}"
                             currentBuild.result = 'UNSTABLE'
-                            echo "Unit Tests failed: ${e.message}"
                         }
                     }
                 }
@@ -47,15 +50,18 @@ pipeline {
         }
 
         stage('Integration Tests') {
+            when {
+                expression { currentBuild.result != 'FAILURE' }
+            }
             steps {
                 dir('nakil-sistemi') {
                     script {
                         try {
-                            // Sadece integration testleri çalıştır
-                            bat 'mvn verify -DskipUnitTests -DskipSeleniumTests'
+                            echo "🔗 Integration Testleri çalıştırılıyor..."
+                            bat "mvn verify -DskipUnitTests -DskipSeleniumTests ${MAVEN_SETTINGS}"
                         } catch (e) {
+                            echo "⚠️ Integration Tests failed: ${e.message}"
                             currentBuild.result = 'UNSTABLE'
-                            echo "Integration Tests failed: ${e.message}"
                         }
                     }
                 }
@@ -68,15 +74,18 @@ pipeline {
         }
 
         stage('Repository Tests') {
+            when {
+                expression { currentBuild.result != 'FAILURE' }
+            }
             steps {
                 dir('nakil-sistemi') {
                     script {
                         try {
-                            // Sadece repository testleri çalıştır
-                            bat 'mvn test -Dtest="*Repository*Test" -DskipITs -DskipSeleniumTests'
+                            echo "🗄️ Repository Testleri çalıştırılıyor..."
+                            bat "mvn test -Dtest=\"*Repository*Test\" -DskipITs -DskipSeleniumTests ${MAVEN_SETTINGS}"
                         } catch (e) {
+                            echo "⚠️ Repository Tests failed: ${e.message}"
                             currentBuild.result = 'UNSTABLE'
-                            echo "Repository Tests failed: ${e.message}"
                         }
                     }
                 }
@@ -94,9 +103,85 @@ pipeline {
             }
             steps {
                 dir('nakil-sistemi') {
-                    bat 'docker-compose down'
-                    bat 'docker-compose up -d'
-                    sleep 40 // Sistemin tamamen açılması için
+                    script {
+                        echo "🐳 Docker container'ları başlatılıyor..."
+                        bat 'docker-compose down'
+                        bat 'docker-compose up -d'
+
+                        // Sistemlerin hazır olmasını bekle
+                        echo "⏳ Sistemlerin hazır olması bekleniyor..."
+
+                        // 1. PostgreSQL kontrolü
+                        def postgresReady = false
+                        for (int i = 0; i < 12 && !postgresReady; i++) {
+                            sleep 5
+                            try {
+                                def result = bat(
+                                    script: 'docker exec mahkum-nakil-db pg_isready -U postgres',
+                                    returnStatus: true
+                                )
+                                if (result == 0) {
+                                    postgresReady = true
+                                    echo "✅ PostgreSQL hazır"
+                                }
+                            } catch (e) {
+                                echo "⏳ PostgreSQL hazır değil, bekleniyor... ($i/12)"
+                            }
+                        }
+
+                        // 2. Selenium Grid kontrolü
+                        def seleniumReady = false
+                        for (int i = 0; i < 8 && !seleniumReady; i++) {
+                            sleep 5
+                            try {
+                                def status = bat(
+                                    script: 'curl -s http://localhost:4444/wd/hub/status || echo "NOT_READY"',
+                                    returnStdout: true
+                                ).trim()
+                                if (status.contains('"ready":true')) {
+                                    seleniumReady = true
+                                    echo "✅ Selenium Grid hazır"
+                                } else {
+                                    echo "⏳ Selenium Grid hazır değil, bekleniyor... ($i/8)"
+                                }
+                            } catch (e) {
+                                echo "⏳ Selenium Grid erişilemiyor, bekleniyor... ($i/8)"
+                            }
+                        }
+
+                        // 3. Uygulama kontrolü
+                        def appReady = false
+                        for (int i = 0; i < 15 && !appReady; i++) {
+                            sleep 5
+                            try {
+                                def result = bat(
+                                    script: 'curl -s -f http://localhost:8080/actuator/health || echo "NOT_READY"',
+                                    returnStdout: true
+                                ).trim()
+                                if (result.contains('"status":"UP"')) {
+                                    appReady = true
+                                    echo "✅ Uygulama hazır"
+                                } else {
+                                    echo "⏳ Uygulama hazır değil, bekleniyor... ($i/15)"
+                                }
+                            } catch (e) {
+                                echo "⏳ Uygulama erişilemiyor, bekleniyor... ($i/15)"
+                            }
+                        }
+
+                        if (!postgresReady) {
+                            echo "❌ PostgreSQL hazır değil!"
+                            currentBuild.result = 'FAILURE'
+                        }
+
+                        if (!seleniumReady) {
+                            echo "⚠️ Selenium Grid hazır değil, Selenium testleri atlanacak"
+                        }
+
+                        if (!appReady) {
+                            echo "⚠️ Uygulama tam hazır değil ama devam ediliyor..."
+                        }
+                    }
                 }
             }
         }
@@ -104,18 +189,45 @@ pipeline {
         stage('Selenium Tests') {
             when {
                 expression {
-                    // Selenium testlerini şimdilik atla, sonra etkinleştir
-                    false && currentBuild.result != 'FAILURE'
+                    currentBuild.result != 'FAILURE'
                 }
             }
             steps {
                 dir('nakil-sistemi') {
                     script {
+                        echo "🌐 Selenium Testleri çalıştırılıyor..."
                         try {
-                            bat 'mvn test -Dtest="*SeleniumTest" -DskipUnitTests -DskipITs'
+                            // Son bir Selenium Grid kontrolü
+                            def gridReady = false
+                            sleep 3
+                            try {
+                                def status = bat(
+                                    script: 'curl -s -m 10 http://localhost:4444/wd/hub/status || echo "NOT_READY"',
+                                    returnStdout: true
+                                ).trim()
+                                if (status.contains('"ready":true')) {
+                                    gridReady = true
+                                    echo "✅ Selenium Grid aktif"
+                                } else {
+                                    echo "⚠️ Selenium Grid yanıt vermiyor: $status"
+                                }
+                            } catch (e) {
+                                echo "⚠️ Selenium Grid kontrol hatası: ${e.message}"
+                            }
+
+                            if (gridReady) {
+                                // Selenium testlerini çalıştır
+                                bat "mvn test -Dtest=\"*SeleniumTest\" -DskipUnitTests -DskipITs ${MAVEN_SETTINGS}"
+                            } else {
+                                echo "❌ Selenium Grid hazır değil, Selenium testleri atlanıyor"
+                                currentBuild.result = 'UNSTABLE'
+                            }
                         } catch (e) {
+                            echo "⚠️ Selenium Tests failed: ${e.message}"
                             currentBuild.result = 'UNSTABLE'
-                            echo "Selenium Tests failed: ${e.message}"
+
+                            // Hata detaylarını logla
+                            bat 'type target\\surefire-reports\\*SeleniumTest*.txt 2>nul || echo "Selenium test logu bulunamadı"'
                         }
                     }
                 }
@@ -131,19 +243,25 @@ pipeline {
     post {
         always {
             dir('nakil-sistemi') {
-                bat 'docker-compose down'
+                script {
+                    echo "🧹 Docker container'ları temizleniyor..."
+                    bat 'docker-compose down || echo "Temizleme hatası"'
+
+                    // Logları topla (opsiyonel)
+                    bat 'docker logs mahkum-nakil-app 2>nul | head -100 || echo "App log alınamadı"'
+                    bat 'docker logs selenium-hub 2>nul | head -50 || echo "Selenium log alınamadı"'
+                }
             }
             script {
-                // Test sonuçlarını yazdır
-                echo "Build Result: ${currentBuild.result}"
+                echo "📊 Build Result: ${currentBuild.result}"
                 if (currentBuild.result == 'FAILURE') {
-                    error('Pipeline failed!')
+                    error('❌ Pipeline failed!')
                 } else if (currentBuild.result == 'UNSTABLE') {
-                    echo 'Pipeline completed with warnings'
+                    echo '⚠️ Pipeline completed with warnings'
                 } else {
                     echo '✅ Pipeline başarıyla tamamlandı!'
                 }
             }
         }
     }
-}
+}g
