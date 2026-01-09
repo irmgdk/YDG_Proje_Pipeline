@@ -6,6 +6,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
@@ -14,12 +15,14 @@ import java.time.Duration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class BaseSeleniumTest {
+public abstract class BaseSeleniumTest {
 
     @LocalServerPort
     protected int port;
 
     protected WebDriver driver;
+    protected WebDriverWait wait;
+    protected String baseUrl;
 
     @BeforeEach
     public void setUp() {
@@ -34,8 +37,13 @@ public class BaseSeleniumTest {
             // Docker içinden localhost'a bağlan
             String hubUrl = "http://localhost:4444/wd/hub";
             driver = new RemoteWebDriver(new URL(hubUrl), options);
+            wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+
+            // Base URL'i oluştur
+            baseUrl = "http://localhost:" + port;
         } catch (Exception e) {
             System.err.println("Selenium bağlantı hatası: " + e.getMessage());
             throw new RuntimeException("Selenium başlatılamadı", e);
@@ -49,7 +57,11 @@ public class BaseSeleniumTest {
         }
     }
 
+    protected void navigateTo(String path) {
+        driver.get(baseUrl + path);
+    }
+
     protected String getBaseUrl() {
-        return "http://localhost:" + port;
+        return baseUrl;
     }
 }

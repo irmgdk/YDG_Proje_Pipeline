@@ -1,6 +1,5 @@
 package com.example.akilli.mahkum.nakil_sistemi.selenium;
 
-
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
@@ -66,7 +65,6 @@ public class DashboardSeleniumTest extends BaseSeleniumTest {
 
         wait.until(ExpectedConditions.urlContains("/mahkum/list"));
         assertTrue(driver.getCurrentUrl().contains("/mahkum/list"));
-
 
         // Test Görevler link
         driver.get(baseUrl);

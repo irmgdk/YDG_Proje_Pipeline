@@ -17,105 +17,81 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            steps {
-                dir('nakil-sistemi') {
-                    bat 'mvn clean package -DskipTests'
-                }
-            }
-        }
-
-        stage('Unit Tests') {
+        stage('Build and Test') {
             steps {
                 dir('nakil-sistemi') {
                     script {
-                        try {
-                            // Sadece unit testleri çalıştır
-                            bat 'mvn test -Dtest="*Test" -DskipITs -DskipSeleniumTests'
-                        } catch (e) {
-                            currentBuild.result = 'UNSTABLE'
-                            echo "Unit Tests failed: ${e.message}"
-                        }
+                        echo '🔨 Proje derleniyor ve test ediliyor...'
+                        // Tüm testleri çalıştır (Selenium hariç)
+                        bat 'mvn clean verify -DskipSeleniumTests -DskipITs=false'
                     }
                 }
             }
             post {
                 always {
                     junit 'nakil-sistemi/target/surefire-reports/*.xml'
-                }
-            }
-        }
-
-        stage('Integration Tests') {
-            steps {
-                dir('nakil-sistemi') {
-                    script {
-                        try {
-                            // Sadece integration testleri çalıştır
-                            bat 'mvn verify -DskipUnitTests -DskipSeleniumTests'
-                        } catch (e) {
-                            currentBuild.result = 'UNSTABLE'
-                            echo "Integration Tests failed: ${e.message}"
-                        }
-                    }
-                }
-            }
-            post {
-                always {
                     junit 'nakil-sistemi/target/failsafe-reports/*.xml'
                 }
             }
         }
 
-        stage('Repository Tests') {
-            steps {
-                dir('nakil-sistemi') {
-                    script {
-                        try {
-                            // Sadece repository testleri çalıştır
-                            bat 'mvn test -Dtest="*Repository*Test" -DskipITs -DskipSeleniumTests'
-                        } catch (e) {
-                            currentBuild.result = 'UNSTABLE'
-                            echo "Repository Tests failed: ${e.message}"
-                        }
-                    }
-                }
-            }
-            post {
-                always {
-                    junit 'nakil-sistemi/target/surefire-reports/*.xml'
-                }
-            }
-        }
-
-        stage('Docker Run') {
+        stage('Docker Build and Run') {
             when {
                 expression { currentBuild.result != 'FAILURE' }
             }
             steps {
                 dir('nakil-sistemi') {
-                    bat 'docker-compose down'
-                    bat 'docker-compose up -d'
-                    sleep 40 // Sistemin tamamen açılması için
+                    script {
+                        echo '🐳 Docker konteynerleri hazırlanıyor...'
+
+                        // Önceki konteynerleri temizle
+                        bat 'docker-compose down --remove-orphans'
+
+                        // Yeni imaj oluştur
+                        bat 'docker-compose build --no-cache app'
+
+                        // Tüm servisleri başlat
+                        bat 'docker-compose up -d'
+
+                        // Sistemlerin başlamasını bekle
+                        echo '⏳ Sistemlerin başlaması bekleniyor...'
+                        sleep 30
+
+                        // Health check'leri kontrol et
+                        echo '🩺 Health check kontrol ediliyor...'
+                        bat 'docker-compose ps'
+
+                        // App health check
+                        bat 'timeout 60 bash -c "until curl -f http://localhost:8080/mahkum-nakil/actuator/health; do sleep 5; done" || echo "App başladı ama health check geçmedi"'
+
+                        // Selenium Grid health check
+                        bat 'timeout 30 bash -c "until curl -f http://localhost:4444/wd/hub/status; do sleep 3; done" || echo "Selenium Grid başladı"'
+                    }
                 }
             }
         }
 
         stage('Selenium Tests') {
             when {
-                expression {
-                    // Selenium testlerini şimdilik atla, sonra etkinleştir
-                    false && currentBuild.result != 'FAILURE'
-                }
+                expression { currentBuild.result != 'FAILURE' }
             }
             steps {
                 dir('nakil-sistemi') {
                     script {
                         try {
-                            bat 'mvn test -Dtest="*SeleniumTest" -DskipUnitTests -DskipITs'
+                            echo '🚀 Selenium testleri başlatılıyor...'
+
+                            // Selenium testlerini çalıştır
+                            bat 'mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false -Dselenium.grid.url=http://localhost:4444/wd/hub'
+
                         } catch (e) {
                             currentBuild.result = 'UNSTABLE'
                             echo "Selenium Tests failed: ${e.message}"
+
+                            // Hata durumunda logları al
+                            bat 'docker-compose logs --tail=50 app'
+                            bat 'docker-compose logs --tail=50 selenium-hub'
+                            bat 'docker-compose logs --tail=50 chrome-node'
                         }
                     }
                 }
@@ -123,6 +99,10 @@ pipeline {
             post {
                 always {
                     junit 'nakil-sistemi/target/surefire-reports/*.xml'
+                    // Ekran görüntülerini sakla
+                    archiveArtifacts artifacts: 'nakil-sistemi/*.png', allowEmptyArchive: true
+                    // Docker loglarını sakla
+                    archiveArtifacts artifacts: 'docker-logs-*.txt', allowEmptyArchive: true
                 }
             }
         }
@@ -131,19 +111,42 @@ pipeline {
     post {
         always {
             dir('nakil-sistemi') {
-                bat 'docker-compose down'
+                script {
+                    echo '🧹 Docker konteynerleri temizleniyor...'
+                    // Logları kaydet
+                    bat 'docker-compose logs app > docker-logs-app.txt 2>&1'
+                    bat 'docker-compose logs selenium-hub > docker-logs-selenium.txt 2>&1'
+                    // Konteynerleri durdur
+                    bat 'docker-compose down --remove-orphans -v'
+                }
             }
+
             script {
-                // Test sonuçlarını yazdır
-                echo "Build Result: ${currentBuild.result}"
+                echo "📊 Build Sonucu: ${currentBuild.result}"
+
+                // Test raporlarını göster
+                def testResults = junit testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml', allowEmptyResults: true
+                if (testResults.totalCount > 0) {
+                    echo "Toplam Test: ${testResults.totalCount}"
+                    echo "✅ Başarılı Test: ${testResults.passCount}"
+                    echo "❌ Başarısız Test: ${testResults.failCount}"
+                    echo "⏭️  Atlanan Test: ${testResults.skipCount}"
+
+                    def successRate = (testResults.passCount / testResults.totalCount) * 100
+                    echo "📈 Başarı Oranı: ${String.format("%.2f", successRate)}%"
+                }
+
                 if (currentBuild.result == 'FAILURE') {
-                    error('Pipeline failed!')
+                    error('❌ Pipeline başarısız oldu!')
                 } else if (currentBuild.result == 'UNSTABLE') {
-                    echo 'Pipeline completed with warnings'
+                    echo '⚠️  Pipeline uyarılarla tamamlandı'
                 } else {
                     echo '✅ Pipeline başarıyla tamamlandı!'
                 }
             }
+
+            // Temizlik
+            bat 'rm -f docker-logs-*.txt || true'
         }
     }
 }
