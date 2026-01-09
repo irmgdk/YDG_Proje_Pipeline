@@ -6,7 +6,9 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
-        MAVEN_OPTS = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
+        MAVEN_OPTS = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
+        SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
+        APP_URL = "http://localhost:8080/mahkum-nakil"
     }
 
     stages {
@@ -184,10 +186,30 @@ pipeline {
 
                             // Selenium Grid'in hazır olduğundan emin ol
                             echo '⏳ Selenium Grid hazırlanıyor...'
-                            sleep 15
+                            sleep 30  // Daha uzun bekle
 
-                            // Selenium testlerini çalıştır
-                            bat 'mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false -Dselenium.grid.url=http://localhost:4444/wd/hub'
+                            // Selenium Grid durumunu kontrol et
+                            bat '''
+                                curl -f http://localhost:4444/wd/hub/status || (
+                                    echo "❌ Selenium Grid hazır değil"
+                                    exit 1
+                                )
+                            '''
+
+                            echo '🎯 Docker uygulaması test edilecek...'
+                            echo '   • Uygulama URL: http://localhost:8080/mahkum-nakil'
+                            echo '   • Selenium Grid: http://localhost:4444/wd/hub'
+
+                            // Maven Selenium testlerini çalıştır
+                            bat '''
+                                mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false ^
+                                  -Dselenium.grid.url=http://localhost:4444/wd/hub ^
+                                  -Dapp.url=http://localhost:8080/mahkum-nakil ^
+                                  -DskipSeleniumTests=false ^
+                                  -Dspring.profiles.active=test ^
+                                  -DskipITs=true ^
+                                  -DskipUTs=true
+                            '''
 
                             echo '✅ Selenium testleri başarıyla tamamlandı'
 
@@ -197,19 +219,27 @@ pipeline {
 
                             // Hata durumunda logları al
                             echo '📋 Docker logları alınıyor...'
-                            bat 'docker-compose logs --tail=100 app > app.log 2>&1'
-                            bat 'docker-compose logs --tail=100 selenium-hub > selenium.log 2>&1'
-                            bat 'docker-compose logs --tail=100 chrome-node > chrome.log 2>&1'
+                            bat '''
+                                docker-compose logs --tail=200 app > app-selenium-error.log 2>&1
+                                docker-compose logs --tail=200 selenium-hub > selenium-hub-error.log 2>&1
+                                docker-compose logs --tail=200 chrome-node > chrome-node-error.log 2>&1
+                                docker-compose ps > docker-ps.log 2>&1
+                            '''
 
                             // Logları arşivle
-                            archiveArtifacts artifacts: 'app.log, selenium.log, chrome.log', allowEmptyArchive: true
+                            archiveArtifacts artifacts: '*error.log, docker-ps.log', allowEmptyArchive: true
+
+                            // Screenshot'ları da al (varsa)
+                            archiveArtifacts artifacts: 'target/screenshots/*.png', allowEmptyArchive: true
                         }
                     }
                 }
             }
             post {
                 always {
+                    // Test raporlarını kaydet
                     junit 'nakil-sistemi/target/surefire-reports/*.xml'
+
                     // Ekran görüntülerini sakla (varsa)
                     archiveArtifacts artifacts: 'nakil-sistemi/*.png', allowEmptyArchive: true
                 }

@@ -34,18 +34,24 @@ public abstract class BaseSeleniumTest {
         options.addArguments("--window-size=1920,1080");
 
         try {
-            // Docker içinden localhost'a bağlan
-            String hubUrl = "http://localhost:4444/wd/hub";
+            // Docker'daki Selenium Grid'e bağlan
+            String hubUrl = System.getProperty("selenium.grid.url", "http://localhost:4444/wd/hub");
+            String appUrl = System.getProperty("app.url", "http://localhost:8080/mahkum-nakil");
+
+            System.out.println("🎯 Selenium Grid URL: " + hubUrl);
+            System.out.println("🎯 Hedef Uygulama URL: " + appUrl);
+
             driver = new RemoteWebDriver(new URL(hubUrl), options);
-            wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
-            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(15));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(60));
 
-            // Base URL'i oluştur
-            baseUrl = "http://localhost:" + port;
+            // Docker'daki uygulamanın URL'sini kullan
+            baseUrl = appUrl;
+            System.out.println("✅ WebDriver başlatıldı. Base URL: " + baseUrl);
         } catch (Exception e) {
-            System.err.println("Selenium bağlantı hatası: " + e.getMessage());
+            System.err.println("❌ Selenium bağlantı hatası: " + e.getMessage());
             throw new RuntimeException("Selenium başlatılamadı", e);
         }
     }
@@ -53,12 +59,37 @@ public abstract class BaseSeleniumTest {
     @AfterEach
     public void tearDown() {
         if (driver != null) {
-            driver.quit();
+            try {
+                driver.quit();
+                System.out.println("✅ WebDriver kapatıldı");
+            } catch (Exception e) {
+                System.err.println("⚠️ WebDriver kapatılırken hata: " + e.getMessage());
+            }
         }
     }
 
     protected void navigateTo(String path) {
-        driver.get(baseUrl + path);
+        String fullUrl = baseUrl + path;
+        System.out.println("🌐 Sayfaya gidiliyor: " + fullUrl);
+
+        // Retry mekanizması ekle
+        for (int i = 1; i <= 3; i++) {
+            try {
+                driver.get(fullUrl);
+                System.out.println("✅ Sayfa yüklendi: " + fullUrl);
+                return;
+            } catch (Exception e) {
+                System.err.println("⚠️ Sayfa yükleme hatası (Deneme " + i + "/3): " + e.getMessage());
+                if (i < 3) {
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("Sayfa yüklenemedi: " + fullUrl);
     }
 
     protected String getBaseUrl() {

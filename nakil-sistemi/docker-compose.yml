@@ -117,12 +117,12 @@ services:
       SE_EVENT_BUS_HOST: selenium-hub
       SE_EVENT_BUS_PUBLISH_PORT: 4442
       SE_EVENT_BUS_SUBSCRIBE_PORT: 4443
-      SE_NODE_MAX_SESSIONS: 2
+      SE_NODE_MAX_SESSIONS: 5
       SE_NODE_OVERRIDE_MAX_SESSIONS: true
       SE_NODE_SESSION_TIMEOUT: 300
       SE_NODE_GRID_URL: http://selenium-hub:4444
-      NODE_MAX_INSTANCES: 2
-      NODE_MAX_SESSION: 2
+      NODE_MAX_INSTANCES: 5
+      NODE_MAX_SESSION: 5
       SE_VNC_NO_PASSWORD: 1
       TZ: Europe/Istanbul
     shm_size: "2gb"
