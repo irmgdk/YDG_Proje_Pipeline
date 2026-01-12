@@ -6,15 +6,10 @@ pipeline {
     }
 
     environment {
-
         APP_DIR           = 'nakil-sistemi'
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         DOCKER_TAG        = "${env.BUILD_NUMBER}"
-
-
         MAVEN_OPTS        = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
-
-
         SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
         APP_URL           = "http://host.docker.internal:8080/mahkum-nakil"
         HEALTH_CHECK_URL  = "http://localhost:8080/mahkum-nakil/actuator/health"
@@ -28,48 +23,66 @@ pipeline {
             }
         }
 
+        // Parent stage to handle the directory switching once
         stage('Build & Test') {
-            steps {
-
-                dir("${env.APP_DIR}") {
-
-                    stage('Compile') {
-                        bat 'mvn clean compile -DskipSeleniumTests'
+            // This is the fix: Nesting 'stages' inside a stage
+            stages {
+                stage('Compile') {
+                    steps {
+                        dir("${env.APP_DIR}") {
+                            bat 'mvn clean compile -DskipSeleniumTests'
+                        }
                     }
+                }
 
-                    stage('Unit Tests') {
-                        script {
-                            try {
-                                bat 'mvn test -Dtest="*ServiceTest" -DfailIfNoTests=false'
-                            } catch (e) {
-                                currentBuild.result = 'UNSTABLE'
+                stage('Unit Tests') {
+                    steps {
+                        dir("${env.APP_DIR}") {
+                            script {
+                                try {
+                                    bat 'mvn test -Dtest="*ServiceTest" -DfailIfNoTests=false'
+                                } catch (e) {
+                                    currentBuild.result = 'UNSTABLE'
+                                }
                             }
                         }
                     }
+                }
 
-                    stage('Integration Tests') {
-                        script {
-                            try {
-                                bat 'mvn test -Dtest="*IntegrationTest,*IT" -DfailIfNoTests=false'
-                            } catch (e) {
-                                currentBuild.result = 'UNSTABLE'
+                stage('Integration Tests') {
+                    steps {
+                        dir("${env.APP_DIR}") {
+                            script {
+                                try {
+                                    bat 'mvn test -Dtest="*IntegrationTest,*IT" -DfailIfNoTests=false'
+                                } catch (e) {
+                                    currentBuild.result = 'UNSTABLE'
+                                }
                             }
                         }
                     }
+                }
 
-                    stage('Repository Tests') {
-                        script {
-                            try {
-                                bat 'mvn test -Dtest="*Repository*Test" -DfailIfNoTests=false'
-                            } catch (e) {
-                                currentBuild.result = 'UNSTABLE'
+                stage('Repository Tests') {
+                    steps {
+                        dir("${env.APP_DIR}") {
+                            script {
+                                try {
+                                    bat 'mvn test -Dtest="*Repository*Test" -DfailIfNoTests=false'
+                                } catch (e) {
+                                    currentBuild.result = 'UNSTABLE'
+                                }
                             }
                         }
                     }
+                }
 
-                    stage('Package') {
-                        when { expression { currentBuild.result != 'FAILURE' } }
-                        bat 'mvn package -DskipTests -DskipSeleniumTests'
+                stage('Package') {
+                    when { expression { currentBuild.result != 'FAILURE' } }
+                    steps {
+                        dir("${env.APP_DIR}") {
+                            bat 'mvn package -DskipTests -DskipSeleniumTests'
+                        }
                     }
                 }
             }
@@ -90,7 +103,6 @@ pipeline {
                         bat 'docker-compose build --no-cache app'
                         bat 'docker-compose up -d'
 
-                        // Optimized Health Check (Removed hard 60s sleep)
                         echo '🩺 Waiting for Application Health Check...'
                         def healthCheckPassed = false
                         timeout(time: 5, unit: 'MINUTES') {
@@ -107,21 +119,18 @@ pipeline {
                         }
 
                         if (healthCheckPassed) {
-                            stage('Run Selenium Tests') {
-                                try {
-                                    bat """
-                                        mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false ^
-                                          -Dselenium.grid.url=${env.SELENIUM_GRID_URL} ^
-                                          -Dapp.url=${env.APP_URL} ^
-                                          -Dspring.main.web-application-type=none ^
-                                          -DskipITs=true -DskipUTs=true
-                                    """
-                                } catch (e) {
-                                    currentBuild.result = 'UNSTABLE'
-                                    // Collect error logs
-                                    bat 'docker-compose logs --tail=200 app > app-selenium-error.log 2>&1'
-                                    archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
-                                }
+                            try {
+                                bat """
+                                    mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false ^
+                                      -Dselenium.grid.url=${env.SELENIUM_GRID_URL} ^
+                                      -Dapp.url=${env.APP_URL} ^
+                                      -Dspring.main.web-application-type=none ^
+                                      -DskipITs=true -DskipUTs=true
+                                """
+                            } catch (e) {
+                                currentBuild.result = 'UNSTABLE'
+                                bat 'docker-compose logs --tail=200 app > app-selenium-error.log 2>&1'
+                                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
                             }
                         }
                     }
@@ -136,10 +145,8 @@ pipeline {
                 bat 'docker-compose down --remove-orphans -v || echo "Cleanup failed"'
             }
             script {
-
                 echo "Final Build Result: ${currentBuild.result}"
             }
-
             bat 'del /Q *.log 2>nul || echo "Done"'
         }
     }
