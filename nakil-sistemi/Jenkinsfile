@@ -407,9 +407,7 @@ pipeline {
                 }
             }
 
-            // Temizlik
-            bat 'del /Q *.log 2>nul || echo "Log dosyaları silinemedi"'
-            bat 'del /Q nakil-sistemi\\target\\screenshots\\*.png 2>nul || echo "Screenshot dosyaları silinemedi"'
+
         }
     }
 }
