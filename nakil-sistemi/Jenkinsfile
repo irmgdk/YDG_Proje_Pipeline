@@ -33,134 +33,221 @@ pipeline {
         stage('1. Asama: Unit Tests (Service Layer)') {
             stages {
                 stage('1.1 AracService Unit Tests') {
-                    stages {
-                        stage('Test 1: tumAraclar_ShouldReturnAllAraclar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#tumAraclar_ShouldReturnAllAraclar' } }
-                        }
-                        stage('Test 2: aracBul_WithValidPlaka_ShouldReturnArac') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracBul_WithValidPlaka_ShouldReturnArac' } }
-                        }
-                        stage('Test 3: aracKaydet_NewArac_ShouldSaveSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracKaydet_NewArac_ShouldSaveSuccessfully' } }
-                        }
-                        stage('Test 4: aracKaydet_DuplicatePlaka_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracKaydet_DuplicatePlaka_ShouldThrowException' } }
-                        }
-                        stage('Test 5: aracKaydet_InvalidPlakaFormat_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracKaydet_InvalidPlakaFormat_ShouldThrowException' } }
-                        }
-                        stage('Test 6: aracSil_ValidId_ShouldDeleteSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracSil_ValidId_ShouldDeleteSuccessfully' } }
-                        }
-                        stage('Test 7: aktifAraclar_ShouldReturnOnlyActiveAraclar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aktifAraclar_ShouldReturnOnlyActiveAraclar' } }
-                        }
-                        stage('Test 8: müsaitAraclar_ShouldReturnAvailableAraclar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#müsaitAraclar_ShouldReturnAvailableAraclar' } }
-                        }
-                        stage('Test 9: tipeGoreAraclar_ShouldReturnFilteredAraclar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#tipeGoreAraclar_ShouldReturnFilteredAraclar' } }
-                        }
-                        stage('Test 10: aracDurumGuncelle_ShouldUpdateAktifStatus') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracDurumGuncelle_ShouldUpdateAktifStatus' } }
-                        }
-                        stage('Test 11: aracBakimaAl_ShouldUpdateBakimdaStatus') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aracBakimaAl_ShouldUpdateBakimdaStatus' } }
-                        }
-                        stage('Test 12: plakaVarMi_ShouldReturnTrueIfExists') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#plakaVarMi_ShouldReturnTrueIfExists' } }
-                        }
-                        stage('Test 13: aramaYap_ShouldReturnMatchingAraclar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#aramaYap_ShouldReturnMatchingAraclar' } }
-                        }
-                        stage('Test 14: toplamAracSayisi_ShouldReturnCount') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest#toplamAracSayisi_ShouldReturnCount' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false, // Tüm test sonuçlarını görmek için false
+                            'Test 1: tumAraclar_ShouldReturnAllAraclar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#tumAraclar_ShouldReturnAllAraclar'
+                                }
+                            },
+                            'Test 2: aracBul_WithValidPlaka_ShouldReturnArac': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracBul_WithValidPlaka_ShouldReturnArac'
+                                }
+                            },
+                            'Test 3: aracKaydet_NewArac_ShouldSaveSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracKaydet_NewArac_ShouldSaveSuccessfully'
+                                }
+                            },
+                            'Test 4: aracKaydet_DuplicatePlaka_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracKaydet_DuplicatePlaka_ShouldThrowException'
+                                }
+                            },
+                            'Test 5: aracKaydet_InvalidPlakaFormat_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracKaydet_InvalidPlakaFormat_ShouldThrowException'
+                                }
+                            },
+                            'Test 6: aracSil_ValidId_ShouldDeleteSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracSil_ValidId_ShouldDeleteSuccessfully'
+                                }
+                            },
+                            'Test 7: aktifAraclar_ShouldReturnOnlyActiveAraclar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aktifAraclar_ShouldReturnOnlyActiveAraclar'
+                                }
+                            },
+                            'Test 8: müsaitAraclar_ShouldReturnAvailableAraclar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#müsaitAraclar_ShouldReturnAvailableAraclar'
+                                }
+                            },
+                            'Test 9: tipeGoreAraclar_ShouldReturnFilteredAraclar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#tipeGoreAraclar_ShouldReturnFilteredAraclar'
+                                }
+                            },
+                            'Test 10: aracDurumGuncelle_ShouldUpdateAktifStatus': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracDurumGuncelle_ShouldUpdateAktifStatus'
+                                }
+                            },
+                            'Test 11: aracBakimaAl_ShouldUpdateBakimdaStatus': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aracBakimaAl_ShouldUpdateBakimdaStatus'
+                                }
+                            },
+                            'Test 12: plakaVarMi_ShouldReturnTrueIfExists': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#plakaVarMi_ShouldReturnTrueIfExists'
+                                }
+                            },
+                            'Test 13: aramaYap_ShouldReturnMatchingAraclar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#aramaYap_ShouldReturnMatchingAraclar'
+                                }
+                            },
+                            'Test 14: toplamAracSayisi_ShouldReturnCount': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracServiceTest#toplamAracSayisi_ShouldReturnCount'
+                                }
+                            }
+                        )
                     }
                 }
 
                 stage('1.2 MahkumService Unit Tests') {
-                    stages {
-                        stage('Test 1: tumMahkumlar_ShouldReturnAllMahkumlar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#tumMahkumlar_ShouldReturnAllMahkumlar' } }
-                        }
-                        stage('Test 2: mahkumBul_WithValidId_ShouldReturnMahkum') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumBul_WithValidId_ShouldReturnMahkum' } }
-                        }
-                        stage('Test 3: mahkumBul_WithInvalidId_ShouldReturnEmpty') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumBul_WithInvalidId_ShouldReturnEmpty' } }
-                        }
-                        stage('Test 4: mahkumKaydet_NewMahkum_ShouldSaveSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_NewMahkum_ShouldSaveSuccessfully' } }
-                        }
-                        stage('Test 5: mahkumKaydet_DuplicateTcKimlik_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_DuplicateTcKimlik_ShouldThrowException' } }
-                        }
-                        stage('Test 6: mahkumKaydet_InvalidTcKimlikFormat_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_InvalidTcKimlikFormat_ShouldThrowException' } }
-                        }
-                        stage('Test 7: mahkumSil_ValidId_ShouldDeleteSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumSil_ValidId_ShouldDeleteSuccessfully' } }
-                        }
-                        stage('Test 8: mahkumSil_InvalidId_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#mahkumSil_InvalidId_ShouldThrowException' } }
-                        }
-                        stage('Test 9: riskeGoreAra_ShouldReturnFilteredMahkumlar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#riskeGoreAra_ShouldReturnFilteredMahkumlar' } }
-                        }
-                        stage('Test 10: aktifMahkumlar_ShouldReturnOnlyActiveMahkumlar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#aktifMahkumlar_ShouldReturnOnlyActiveMahkumlar' } }
-                        }
-                        stage('Test 11: adVeyaSoyadaGoreAra_ShouldReturnMatchingMahkumlar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#adVeyaSoyadaGoreAra_ShouldReturnMatchingMahkumlar' } }
-                        }
-                        stage('Test 12: toplamMahkumSayisi_ShouldReturnCount') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest#toplamMahkumSayisi_ShouldReturnCount' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Test 1: tumMahkumlar_ShouldReturnAllMahkumlar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#tumMahkumlar_ShouldReturnAllMahkumlar'
+                                }
+                            },
+                            'Test 2: mahkumBul_WithValidId_ShouldReturnMahkum': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumBul_WithValidId_ShouldReturnMahkum'
+                                }
+                            },
+                            'Test 3: mahkumBul_WithInvalidId_ShouldReturnEmpty': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumBul_WithInvalidId_ShouldReturnEmpty'
+                                }
+                            },
+                            'Test 4: mahkumKaydet_NewMahkum_ShouldSaveSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_NewMahkum_ShouldSaveSuccessfully'
+                                }
+                            },
+                            'Test 5: mahkumKaydet_DuplicateTcKimlik_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_DuplicateTcKimlik_ShouldThrowException'
+                                }
+                            },
+                            'Test 6: mahkumKaydet_InvalidTcKimlikFormat_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumKaydet_InvalidTcKimlikFormat_ShouldThrowException'
+                                }
+                            },
+                            'Test 7: mahkumSil_ValidId_ShouldDeleteSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumSil_ValidId_ShouldDeleteSuccessfully'
+                                }
+                            },
+                            'Test 8: mahkumSil_InvalidId_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#mahkumSil_InvalidId_ShouldThrowException'
+                                }
+                            },
+                            'Test 9: riskeGoreAra_ShouldReturnFilteredMahkumlar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#riskeGoreAra_ShouldReturnFilteredMahkumlar'
+                                }
+                            },
+                            'Test 10: aktifMahkumlar_ShouldReturnOnlyActiveMahkumlar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#aktifMahkumlar_ShouldReturnOnlyActiveMahkumlar'
+                                }
+                            },
+                            'Test 11: adVeyaSoyadaGoreAra_ShouldReturnMatchingMahkumlar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#adVeyaSoyadaGoreAra_ShouldReturnMatchingMahkumlar'
+                                }
+                            },
+                            'Test 12: toplamMahkumSayisi_ShouldReturnCount': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumServiceTest#toplamMahkumSayisi_ShouldReturnCount'
+                                }
+                            }
+                        )
                     }
                 }
 
                 stage('1.3 NakilGoreviService Unit Tests') {
-                    stages {
-                        stage('Test 1: tumGorevleriGetir_ShouldReturnAllGorevler') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#tumGorevleriGetir_ShouldReturnAllGorevler' } }
-                        }
-                        stage('Test 2: gorevBul_WithValidId_ShouldReturnGorev') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBul_WithValidId_ShouldReturnGorev' } }
-                        }
-                        stage('Test 3: gorevKaydet_NewGorev_ShouldSaveSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevKaydet_NewGorev_ShouldSaveSuccessfully' } }
-                        }
-                        stage('Test 4: gorevKaydet_WithoutSofor_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevKaydet_WithoutSofor_ShouldThrowException' } }
-                        }
-                        stage('Test 5: gorevBaslat_ValidGorev_ShouldUpdateStatus') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBaslat_ValidGorev_ShouldUpdateStatus' } }
-                        }
-                        stage('Test 6: gorevBaslat_WithoutArac_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBaslat_WithoutArac_ShouldThrowException' } }
-                        }
-                        stage('Test 7: gorevTamamla_ValidGorev_ShouldUpdateStatus') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevTamamla_ValidGorev_ShouldUpdateStatus' } }
-                        }
-                        stage('Test 8: gorevTamamla_NotInProgress_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevTamamla_NotInProgress_ShouldThrowException' } }
-                        }
-                        stage('Test 9: gorevSil_PlannedGorev_ShouldDeleteSuccessfully') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevSil_PlannedGorev_ShouldDeleteSuccessfully' } }
-                        }
-                        stage('Test 10: gorevSil_CompletedGorev_ShouldThrowException') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevSil_CompletedGorev_ShouldThrowException' } }
-                        }
-                        stage('Test 11: durumaGoreGorevler_ShouldReturnFilteredGorevler') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#durumaGoreGorevler_ShouldReturnFilteredGorevler' } }
-                        }
-                        stage('Test 12: aktifGorevler_ShouldReturnActiveGorevler') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#aktifGorevler_ShouldReturnActiveGorevler' } }
-                        }
-                        stage('Test 13: getIstatistikler_ShouldReturnStatistics') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest#getIstatistikler_ShouldReturnStatistics' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Test 1: tumGorevleriGetir_ShouldReturnAllGorevler': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#tumGorevleriGetir_ShouldReturnAllGorevler'
+                                }
+                            },
+                            'Test 2: gorevBul_WithValidId_ShouldReturnGorev': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBul_WithValidId_ShouldReturnGorev'
+                                }
+                            },
+                            'Test 3: gorevKaydet_NewGorev_ShouldSaveSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevKaydet_NewGorev_ShouldSaveSuccessfully'
+                                }
+                            },
+                            'Test 4: gorevKaydet_WithoutSofor_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevKaydet_WithoutSofor_ShouldThrowException'
+                                }
+                            },
+                            'Test 5: gorevBaslat_ValidGorev_ShouldUpdateStatus': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBaslat_ValidGorev_ShouldUpdateStatus'
+                                }
+                            },
+                            'Test 6: gorevBaslat_WithoutArac_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevBaslat_WithoutArac_ShouldThrowException'
+                                }
+                            },
+                            'Test 7: gorevTamamla_ValidGorev_ShouldUpdateStatus': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevTamamla_ValidGorev_ShouldUpdateStatus'
+                                }
+                            },
+                            'Test 8: gorevTamamla_NotInProgress_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevTamamla_NotInProgress_ShouldThrowException'
+                                }
+                            },
+                            'Test 9: gorevSil_PlannedGorev_ShouldDeleteSuccessfully': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevSil_PlannedGorev_ShouldDeleteSuccessfully'
+                                }
+                            },
+                            'Test 10: gorevSil_CompletedGorev_ShouldThrowException': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#gorevSil_CompletedGorev_ShouldThrowException'
+                                }
+                            },
+                            'Test 11: durumaGoreGorevler_ShouldReturnFilteredGorevler': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#durumaGoreGorevler_ShouldReturnFilteredGorevler'
+                                }
+                            },
+                            'Test 12: aktifGorevler_ShouldReturnActiveGorevler': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#aktifGorevler_ShouldReturnActiveGorevler'
+                                }
+                            },
+                            'Test 13: getIstatistikler_ShouldReturnStatistics': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=NakilGoreviServiceTest#getIstatistikler_ShouldReturnStatistics'
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -174,34 +261,55 @@ pipeline {
         stage('2. Asama: Integration Tests (Controller)') {
             stages {
                 stage('2.1 MahkumController Integration Tests') {
-                    stages {
-                        stage('Test 1: listMahkumlar_ShouldReturnMahkumListPage') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#listMahkumlar_ShouldReturnMahkumListPage' } }
-                        }
-                        stage('Test 2: showAddForm_ShouldReturnAddFormPage') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#showAddForm_ShouldReturnAddFormPage' } }
-                        }
-                        stage('Test 3: saveMahkum_NewMahkum_ShouldSaveAndRedirect') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#saveMahkum_NewMahkum_ShouldSaveAndRedirect' } }
-                        }
-                        stage('Test 4: saveMahkum_InvalidData_ShouldReturnToFormWithError') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#saveMahkum_InvalidData_ShouldReturnToFormWithError' } }
-                        }
-                        stage('Test 5: showEditForm_ValidId_ShouldReturnEditForm') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#showEditForm_ValidId_ShouldReturnEditForm' } }
-                        }
-                        stage('Test 6: deleteMahkum_ValidId_ShouldDeleteAndRedirect') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#deleteMahkum_ValidId_ShouldDeleteAndRedirect' } }
-                        }
-                        stage('Test 7: deleteMahkum_ServiceThrowsException_ShouldShowError') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#deleteMahkum_ServiceThrowsException_ShouldShowError' } }
-                        }
-                        stage('Test 8: searchByRisk_ValidRisk_ShouldReturnFilteredList') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#searchByRisk_ValidRisk_ShouldReturnFilteredList' } }
-                        }
-                        stage('Test 9: searchByRisk_InvalidRisk_ShouldShowAllWithError') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT#searchByRisk_InvalidRisk_ShouldShowAllWithError' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Test 1: listMahkumlar_ShouldReturnMahkumListPage': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#listMahkumlar_ShouldReturnMahkumListPage'
+                                }
+                            },
+                            'Test 2: showAddForm_ShouldReturnAddFormPage': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#showAddForm_ShouldReturnAddFormPage'
+                                }
+                            },
+                            'Test 3: saveMahkum_NewMahkum_ShouldSaveAndRedirect': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#saveMahkum_NewMahkum_ShouldSaveAndRedirect'
+                                }
+                            },
+                            'Test 4: saveMahkum_InvalidData_ShouldReturnToFormWithError': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#saveMahkum_InvalidData_ShouldReturnToFormWithError'
+                                }
+                            },
+                            'Test 5: showEditForm_ValidId_ShouldReturnEditForm': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#showEditForm_ValidId_ShouldReturnEditForm'
+                                }
+                            },
+                            'Test 6: deleteMahkum_ValidId_ShouldDeleteAndRedirect': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#deleteMahkum_ValidId_ShouldDeleteAndRedirect'
+                                }
+                            },
+                            'Test 7: deleteMahkum_ServiceThrowsException_ShouldShowError': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#deleteMahkum_ServiceThrowsException_ShouldShowError'
+                                }
+                            },
+                            'Test 8: searchByRisk_ValidRisk_ShouldReturnFilteredList': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#searchByRisk_ValidRisk_ShouldReturnFilteredList'
+                                }
+                            },
+                            'Test 9: searchByRisk_InvalidRisk_ShouldShowAllWithError': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumControllerIT#searchByRisk_InvalidRisk_ShouldShowAllWithError'
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -215,13 +323,20 @@ pipeline {
         stage('3. Asama: Repository Integration Tests') {
             stages {
                 stage('3.1 MahkumRepository Integration Tests') {
-                    stages {
-                        stage('Test 1: findByTcKimlik_ShouldReturnMahkum') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest#findByTcKimlik_ShouldReturnMahkum' } }
-                        }
-                        stage('Test 2: findByRiskSeviyesi_ShouldReturnFilteredMahkumlar') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest#findByRiskSeviyesi_ShouldReturnFilteredMahkumlar' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Test 1: findByTcKimlik_ShouldReturnMahkum': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest#findByTcKimlik_ShouldReturnMahkum'
+                                }
+                            },
+                            'Test 2: findByRiskSeviyesi_ShouldReturnFilteredMahkumlar': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest#findByRiskSeviyesi_ShouldReturnFilteredMahkumlar'
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -314,33 +429,53 @@ pipeline {
         stage('6. Asama: Selenium Testleri') {
             stages {
                 stage('6.1 Arac Selenium Testleri') {
-                    stages {
-                        stage('Senaryo 1: Arac Listeleme Sayfasi Yukleme') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracSeleniumTest#testAracListPageLoads' } }
-                        }
-                        stage('Senaryo 2: Yeni Arac Ekleme') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracSeleniumTest#testAddNewArac' } }
-                        }
-                        stage('Senaryo 3: Arac Arama') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracSeleniumTest#testSearchArac' } }
-                        }
-                        stage('Senaryo 4: Arac Durum Degistirme') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracSeleniumTest#testAracStatusToggle' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Senaryo 1: Arac Listeleme Sayfasi Yukleme': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracSeleniumTest#testAracListPageLoads'
+                                }
+                            },
+                            'Senaryo 2: Yeni Arac Ekleme': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracSeleniumTest#testAddNewArac'
+                                }
+                            },
+                            'Senaryo 3: Arac Arama': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracSeleniumTest#testSearchArac'
+                                }
+                            },
+                            'Senaryo 4: Arac Durum Degistirme': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=AracSeleniumTest#testAracStatusToggle'
+                                }
+                            }
+                        )
                     }
                 }
 
                 stage('6.2 Dashboard Selenium Testleri') {
-                    stages {
-                        stage('Senaryo 1: Ana Sayfa Yukleme') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=DashboardSeleniumTest#testHomePageLoadsSuccessfully' } }
-                        }
-                        stage('Senaryo 2: Dashboard Istatistikleri') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=DashboardSeleniumTest#testDashboardStatisticsDisplayed' } }
-                        }
-                        stage('Senaryo 3: Navigasyon Linkleri') {
-                            steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=DashboardSeleniumTest#testNavigationLinksWork' } }
-                        }
+                    steps {
+                        parallel(
+                            failFast: false,
+                            'Senaryo 1: Ana Sayfa Yukleme': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=DashboardSeleniumTest#testHomePageLoadsSuccessfully'
+                                }
+                            },
+                            'Senaryo 2: Dashboard Istatistikleri': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=DashboardSeleniumTest#testDashboardStatisticsDisplayed'
+                                }
+                            },
+                            'Senaryo 3: Navigasyon Linkleri': {
+                                dir('nakil-sistemi') {
+                                    bat 'mvn test -Dtest=DashboardSeleniumTest#testNavigationLinksWork'
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -383,17 +518,17 @@ pipeline {
                     // Detaylı test aşamaları raporu
                     echo "📋 Detaylı Test Aşamaları:"
                     echo "  1. Asama: Service Unit Tests (39 test metod)"
-                    echo "    • AracServiceTest: 14 test"
-                    echo "    • MahkumServiceTest: 12 test"
-                    echo "    • NakilGoreviServiceTest: 13 test"
+                    echo "    • AracServiceTest: 14 test (paralel)"
+                    echo "    • MahkumServiceTest: 12 test (paralel)"
+                    echo "    • NakilGoreviServiceTest: 13 test (paralel)"
                     echo "  2. Asama: Controller Integration Tests (9 test metod)"
-                    echo "    • MahkumControllerIT: 9 test"
+                    echo "    • MahkumControllerIT: 9 test (paralel)"
                     echo "  3. Asama: Repository Integration Tests (2 test metod)"
-                    echo "    • MahkumRepositoryIntegrationTest: 2 test"
+                    echo "    • MahkumRepositoryIntegrationTest: 2 test (paralel)"
                     echo "  6. Asama: Selenium Tests (7 senaryo)"
-                    echo "    • AracSeleniumTest: 4 senaryo"
-                    echo "    • DashboardSeleniumTest: 3 senaryo"
-                    echo "  TOPLAM: 57 test metod/senaryo"
+                    echo "    • AracSeleniumTest: 4 senaryo (paralel)"
+                    echo "    • DashboardSeleniumTest: 3 senaryo (paralel)"
+                    echo "  TOPLAM: 57 test metod/senaryo (çoğu paralel)"
                 }
 
                 // Sonuç değerlendirme
@@ -406,8 +541,6 @@ pipeline {
                     echo '✅ Pipeline SUCCESS ile tamamlandı!'
                 }
             }
-
-
         }
     }
 }
