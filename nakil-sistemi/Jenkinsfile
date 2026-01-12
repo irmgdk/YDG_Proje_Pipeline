@@ -1,139 +1,108 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker imaj etiketi')
+        booleanParam(name: 'RUN_SELENIUM', defaultValue: true, description: 'Selenium testleri çalıştırılsın mı?')
+    }
+
     tools {
         jdk 'JDK'
+        maven 'M3' // Maven'ı global tool olarak tanımlamak daha profesyoneldir
     }
 
     environment {
-        APP_DIR           = 'nakil-sistemi'
-        DOCKER_IMAGE_NAME = 'nakil-sistemi'
-        DOCKER_TAG        = "${env.BUILD_NUMBER}"
-        MAVEN_OPTS        = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
-        SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
-        APP_URL           = "http://host.docker.internal:8080/mahkum-nakil"
-        HEALTH_CHECK_URL  = "http://localhost:8080/mahkum-nakil/actuator/health"
+        DOCKER_IMAGE = 'nakil-sistemi'
+        MAVEN_ARGS = "-Djacoco.skip=true -Dfile.encoding=UTF-8 -DskipSeleniumTests=true"
+        APP_URL = "http://host.docker.internal:8080/mahkum-nakil"
+    }
+
+    options {
+        timeout(time: 1, unit: 'HOURS') // Pipeline'ın asılı kalmasını önler
+        timestamps() // Loglarda zaman damgası gösterir
+        buildDiscarder(logRotator(numToKeepStr: '10')) // Eski buildleri temizler
     }
 
     stages {
+        stage('Initial Cleanup') {
+            steps {
+                echo '🧹 Temizlik yapılıyor...'
+                deleteDir() // Çalışma alanını temizle
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
-                echo '✅ Github kodları çekildi'
+                echo '✅ Kaynak kod çekildi.'
             }
         }
 
-        // Parent stage to handle the directory switching once
-        stage('Build & Test') {
-            // This is the fix: Nesting 'stages' inside a stage
-            stages {
-                stage('Compile') {
-                    steps {
-                        dir("${env.APP_DIR}") {
-                            bat 'mvn clean compile -DskipSeleniumTests'
-                        }
-                    }
-                }
-
-                stage('Unit Tests') {
-                    steps {
-                        dir("${env.APP_DIR}") {
-                            script {
-                                try {
-                                    bat 'mvn test -Dtest="*ServiceTest" -DfailIfNoTests=false'
-                                } catch (e) {
-                                    currentBuild.result = 'UNSTABLE'
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Integration Tests') {
-                    steps {
-                        dir("${env.APP_DIR}") {
-                            script {
-                                try {
-                                    bat 'mvn test -Dtest="*IntegrationTest,*IT" -DfailIfNoTests=false'
-                                } catch (e) {
-                                    currentBuild.result = 'UNSTABLE'
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Repository Tests') {
-                    steps {
-                        dir("${env.APP_DIR}") {
-                            script {
-                                try {
-                                    bat 'mvn test -Dtest="*Repository*Test" -DfailIfNoTests=false'
-                                } catch (e) {
-                                    currentBuild.result = 'UNSTABLE'
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Package') {
-                    when { expression { currentBuild.result != 'FAILURE' } }
-                    steps {
-                        dir("${env.APP_DIR}") {
-                            bat 'mvn package -DskipTests -DskipSeleniumTests'
-                        }
-                    }
-                }
-            }
-            post {
-                always {
-                    junit "${env.APP_DIR}/target/surefire-reports/*.xml"
-                }
-            }
-        }
-
-        stage('Docker & Selenium E2E') {
-            when { expression { currentBuild.result != 'FAILURE' } }
+        stage('Build & Unit Tests') {
             steps {
-                dir("${env.APP_DIR}") {
-                    script {
-                        echo '🐳 Docker setup starting...'
-                        bat 'docker-compose down --remove-orphans'
-                        bat 'docker-compose build --no-cache app'
-                        bat 'docker-compose up -d'
+                dir('nakil-sistemi') {
+                    echo '📦 Derleme ve Birim Testler...'
+                    bat "mvn clean install ${MAVEN_ARGS} -Dtest=*ServiceTest"
+                }
+            }
+        }
 
-                        echo '🩺 Waiting for Application Health Check...'
-                        def healthCheckPassed = false
-                        timeout(time: 5, unit: 'MINUTES') {
-                            waitUntil {
-                                try {
-                                    bat "curl -s -o nul -w \"%%{http_code}\" ${env.HEALTH_CHECK_URL} | findstr /R /C:\"200\""
-                                    healthCheckPassed = true
-                                    return true
-                                } catch (e) {
-                                    sleep 5
-                                    return false
-                                }
-                            }
-                        }
-
-                        if (healthCheckPassed) {
-                            try {
-                                bat """
-                                    mvn test -Dtest="*SeleniumTest" -DfailIfNoTests=false ^
-                                      -Dselenium.grid.url=${env.SELENIUM_GRID_URL} ^
-                                      -Dapp.url=${env.APP_URL} ^
-                                      -Dspring.main.web-application-type=none ^
-                                      -DskipITs=true -DskipUTs=true
-                                """
-                            } catch (e) {
-                                currentBuild.result = 'UNSTABLE'
-                                bat 'docker-compose logs --tail=200 app > app-selenium-error.log 2>&1'
-                                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
-                            }
+        stage('Integration & Repository Tests') {
+            parallel { // Test süresini kısaltmak için paralel koşturulabilir
+                stage('Controller Tests') {
+                    steps {
+                        dir('nakil-sistemi') {
+                            bat 'mvn test -Dtest="*IntegrationTest,*IT" -DfailIfNoTests=false'
                         }
                     }
+                }
+                stage('Repo Tests') {
+                    steps {
+                        dir('nakil-sistemi') {
+                            bat 'mvn test -Dtest="*Repository*Test" -DfailIfNoTests=false'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker Preparation') {
+            steps {
+                dir('nakil-sistemi') {
+                    echo '🐳 Docker imajı hazırlanıyor...'
+                    bat 'docker-compose down --remove-orphans'
+                    bat "docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} ."
+                    bat 'docker-compose up -d'
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    echo '🩺 Uygulama ayağa kalkıyor mu?'
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitUntil {
+                            def response = bat(returnStatus: true, script: "curl -s --fail ${APP_URL}/actuator/health")
+                            return (response == 0)
+                        }
+                    }
+                    echo '✅ Uygulama sağlıklı.'
+                }
+            }
+        }
+
+        stage('Selenium E2E Tests') {
+            when { expression { return params.RUN_SELENIUM } }
+            steps {
+                dir('nakil-sistemi') {
+                    echo '🚀 Selenium Grid Testleri başlatılıyor...'
+                    bat """
+                        mvn test -Dtest="*SeleniumTest" ^
+                        -Dselenium.grid.url=http://localhost:4444/wd/hub ^
+                        -Dapp.url=${APP_URL} ^
+                        -Dspring.main.web-application-type=none
+                    """
                 }
             }
         }
@@ -141,13 +110,22 @@ pipeline {
 
     post {
         always {
-            dir("${env.APP_DIR}") {
-                bat 'docker-compose down --remove-orphans -v || echo "Cleanup failed"'
-            }
             script {
-                echo "Final Build Result: ${currentBuild.result}"
+                echo '📊 Raporlar toplanıyor...'
+                junit '**/target/surefire-reports/*.xml'
+
+                echo '🧹 Docker ortamı kapatılıyor...'
+                dir('nakil-sistemi') {
+                    bat 'docker-compose down -v'
+                }
             }
-            bat 'del /Q *.log 2>nul || echo "Done"'
+        }
+        success {
+            echo '🎉 Tebrikler! Pipeline başarıyla tamamlandı.'
+        }
+        failure {
+            echo '❌ Pipeline başarısız oldu. Lütfen logları ve test raporlarını inceleyin.'
+            archiveArtifacts artifacts: '**/app-selenium-error.log, **/target/screenshots/*.png', allowEmptyArchive: true
         }
     }
 }
