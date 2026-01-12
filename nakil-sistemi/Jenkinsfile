@@ -8,7 +8,7 @@ pipeline {
 
     tools {
         jdk 'JDK'
-        maven 'M3' // Maven'ı global tool olarak tanımlamak daha profesyoneldir
+        maven 'Maven' // Maven'ı global tool olarak tanımlamak daha profesyoneldir
     }
 
     environment {
