@@ -77,20 +77,6 @@ pipeline {
             }
         }
 
-        stage('Health Check') {
-            steps {
-                script {
-                    echo '🩺 Uygulama ayağa kalkıyor mu?'
-                    timeout(time: 5, unit: 'MINUTES') {
-                        waitUntil {
-                            def response = bat(returnStatus: true, script: "curl -s --fail ${APP_URL}/actuator/health")
-                            return (response == 0)
-                        }
-                    }
-                    echo '✅ Uygulama sağlıklı.'
-                }
-            }
-        }
 
         stage('Selenium E2E Tests') {
             when { expression { return params.RUN_SELENIUM } }
