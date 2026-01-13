@@ -156,9 +156,6 @@ pipeline {
             junit allowEmptyResults: true, testResults: 'nakil-sistemi/target/surefire-reports/*.xml'
             echo '📝 Test results archived.'
         }
-        cleanup {
-            // Optional: Tear down docker to save resources on your laptop
-            // dir('nakil-sistemi') { bat 'docker-compose down' }
-        }
+
     }
 }
