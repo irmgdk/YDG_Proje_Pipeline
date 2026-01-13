@@ -6,17 +6,17 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         MAVEN_OPTS = "-Dfile.encoding=UTF-8"
-        // Setup internal host for Windows Docker
+        // Uses internal docker networking (Standard for Windows)
         APP_URL = "http://host.docker.internal:8080/mahkum-nakil"
         SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
     }
 
     stages {
         // --- 1. Code Pull (5 Points) ---
-        stage('1. Checkout deneme') {
+        stage('1. Checkout') {
             steps {
                 checkout scm
-                echo '✅ Github Code Pulled'
+                echo '✅ Github Code Pulled via Ngrok Trigger'
             }
         }
 
@@ -24,9 +24,9 @@ pipeline {
         stage('2. Build Project') {
             steps {
                 dir('nakil-sistemi') {
-                    // Compiles the code without running tests yet
+                    // Compiles once. Fast.
                     bat 'mvn clean compile -DskipTests'
-                    echo '✅ Project Built Successfully'
+                    echo '✅ Project Built'
                 }
             }
         }
@@ -36,16 +36,9 @@ pipeline {
             steps {
                 dir('nakil-sistemi') {
                     script {
-                        echo '🚀 Running All Service Unit Tests...'
-                        // OPTIMIZATION: Running all Service tests in ONE command
-                        // This allows Surefire to reuse the JVM, making it 10x faster
-                        try {
-                            bat 'mvn test -Dtest=AracServiceTest,MahkumServiceTest,NakilGoreviServiceTest'
-                        } catch (Exception e) {
-                            currentBuild.result = 'UNSTABLE'
-                            echo '❌ Unit Tests Failed'
-                            throw e
-                        }
+                        echo '🚀 Running Service Tests...'
+                        // runs ALL service tests in one go (Very Fast)
+                        bat 'mvn test -Dtest=AracServiceTest,MahkumServiceTest,NakilGoreviServiceTest'
                     }
                 }
             }
@@ -53,13 +46,11 @@ pipeline {
 
         // --- 4. Integration Tests (15 Points) ---
         stage('4. Integration Tests') {
-            failFast false
+            // Runs Controller and Repository tests at the same time
             parallel {
-                // We run Controller and Repository tests in parallel to save time
                 stage('Controller Tests') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all methods in MahkumControllerIT at once
                             bat 'mvn test -Dtest=MahkumControllerIT'
                         }
                     }
@@ -67,7 +58,6 @@ pipeline {
                 stage('Repository Tests') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all methods in MahkumRepositoryIntegrationTest at once
                             bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest'
                         }
                     }
@@ -75,12 +65,11 @@ pipeline {
             }
         }
 
-        // --- Package Application ---
+        // --- Package Application (Hidden Helper Step) ---
         stage('Package Jar') {
             when { expression { currentBuild.result != 'FAILURE' } }
             steps {
                 dir('nakil-sistemi') {
-                    // Package without running tests again (they already passed)
                     bat 'mvn package -DskipTests'
                 }
             }
@@ -88,60 +77,50 @@ pipeline {
 
         // --- 5. System Run on Docker (5 Points) ---
         stage('5. Docker Deployment') {
-            when { expression { currentBuild.result != 'FAILURE' } }
             steps {
                 dir('nakil-sistemi') {
                     script {
-                        echo '🐳 Refreshing Docker Containers...'
+                        echo '🐳 Restarting Docker...'
                         bat 'docker-compose down --remove-orphans'
                         bat 'docker-compose build --no-cache app'
                         bat 'docker-compose up -d'
 
-                        // OPTIMIZATION: Intelligent Wait loop instead of hardcoded sleep
-                        echo '⏳ Waiting for application to start...'
-                        def healthCheckPassed = false
-                        def retryCount = 0
-
-                        // Try for up to 60 seconds (12 * 5s)
-                        while (!healthCheckPassed && retryCount < 12) {
-                            sleep 5
-                            try {
-                                // Checks if the actuator health endpoint returns 200 OK
-                                bat 'curl -s -f -o nul http://localhost:8080/mahkum-nakil/actuator/health'
-                                healthCheckPassed = true
-                                echo '✅ App is UP and READY!'
-                            } catch (Exception e) {
-                                retryCount++
-                                echo "Still waiting... (${retryCount}/12)"
+                        echo '⏳ Waiting for app (Smart Check)...'
+                        // Loops until app is ready (max 2 mins)
+                        timeout(time: 2, unit: 'MINUTES') {
+                            waitUntil {
+                                script {
+                                    try {
+                                        // Checks if the app is alive
+                                        def status = bat(returnStdout: true, script: 'curl -s -o nul -w "%{http_code}" http://localhost:8080/mahkum-nakil/actuator/health').trim()
+                                        return status == '200'
+                                    } catch (Exception e) {
+                                        return false
+                                    }
+                                }
                             }
                         }
-
-                        if (!healthCheckPassed) {
-                            error "❌ Application failed to start within 60 seconds."
-                        }
+                        echo '✅ App is UP!'
                     }
                 }
             }
         }
 
-        // --- 6. Selenium Test Scenarios (55 Points + Bonus) ---
-        // The assignment allows separate stages here, which is good for reporting.
-        // We group them by Class (Scenario) rather than by Method.
-        stage('6. Selenium E2E Scenarios') {
-            when { expression { currentBuild.result != 'FAILURE' } }
+        // --- 6. Selenium Test Scenarios (55 Points) ---
+        stage('6. Selenium Scenarios') {
             stages {
-                stage('Scenario Set A: Arac Operations') {
+                stage('Scenario Set A: Arac') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all 4 Arac scenarios (List, Add, Search, Toggle) in one go
+                            // Runs all Arac Selenium tests
                             bat 'mvn test -Dtest=AracSeleniumTest'
                         }
                     }
                 }
-                stage('Scenario Set B: Dashboard Checks') {
+                stage('Scenario Set B: Dashboard') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all Dashboard scenarios (Home, Stats, Nav) in one go
+                            // Runs all Dashboard Selenium tests
                             bat 'mvn test -Dtest=DashboardSeleniumTest'
                         }
                     }
@@ -152,10 +131,7 @@ pipeline {
 
     post {
         always {
-            // Generates the report required by the assignment
             junit allowEmptyResults: true, testResults: 'nakil-sistemi/target/surefire-reports/*.xml'
-            echo '📝 Test results archived.'
         }
-
     }
 }
