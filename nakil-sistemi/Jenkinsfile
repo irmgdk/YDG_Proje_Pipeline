@@ -13,7 +13,7 @@ pipeline {
 
     stages {
         // --- 1. Code Pull (5 Points) ---
-        stage('1. Checkout') {
+        stage('1. Checkout deneme') {
             steps {
                 checkout scm
                 echo '✅ Github Code Pulled'
