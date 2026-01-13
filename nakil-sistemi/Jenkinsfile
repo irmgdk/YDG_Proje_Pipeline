@@ -6,7 +6,6 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'nakil-sistemi'
         MAVEN_OPTS = "-Dfile.encoding=UTF-8"
-        // Uses internal docker networking (Standard for Windows)
         APP_URL = "http://host.docker.internal:8080/mahkum-nakil"
         SELENIUM_GRID_URL = "http://localhost:4444/wd/hub"
     }
@@ -16,7 +15,7 @@ pipeline {
         stage('1. Checkout') {
             steps {
                 checkout scm
-                echo '✅ Github Code Pulled via Ngrok Trigger'
+                echo '✅ Github codes pulled via Ngrok'
             }
         }
 
@@ -24,53 +23,34 @@ pipeline {
         stage('2. Build Project') {
             steps {
                 dir('nakil-sistemi') {
-                    // Compiles once. Fast.
                     bat 'mvn clean compile -DskipTests'
-                    echo '✅ Project Built'
                 }
             }
         }
 
         // --- 3. Unit Tests (15 Points) ---
-        stage('3. Unit Tests (Service Layer)') {
-            steps {
-                dir('nakil-sistemi') {
-                    script {
-                        echo '🚀 Running Service Tests...'
-                        // runs ALL service tests in one go (Very Fast)
-                        bat 'mvn test -Dtest=AracServiceTest,MahkumServiceTest,NakilGoreviServiceTest'
-                    }
+        stage('3. Unit Tests') {
+            stages {
+                stage('3.1 Arac Service') {
+                    steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=AracServiceTest' } }
+                }
+                stage('3.2 Mahkum Service') {
+                    steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumServiceTest' } }
+                }
+                stage('3.3 Nakil Service') {
+                    steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=NakilGoreviServiceTest' } }
                 }
             }
         }
 
         // --- 4. Integration Tests (15 Points) ---
         stage('4. Integration Tests') {
-            // Runs Controller and Repository tests at the same time
-            parallel {
-                stage('Controller Tests') {
-                    steps {
-                        dir('nakil-sistemi') {
-                            bat 'mvn test -Dtest=MahkumControllerIT'
-                        }
-                    }
+            stages {
+                stage('4.1 Mahkum Controller IT') {
+                    steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumControllerIT' } }
                 }
-                stage('Repository Tests') {
-                    steps {
-                        dir('nakil-sistemi') {
-                            bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest'
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- Package Application (Hidden Helper Step) ---
-        stage('Package Jar') {
-            when { expression { currentBuild.result != 'FAILURE' } }
-            steps {
-                dir('nakil-sistemi') {
-                    bat 'mvn package -DskipTests'
+                stage('4.2 Repository Integration') {
+                    steps { dir('nakil-sistemi') { bat 'mvn test -Dtest=MahkumRepositoryIntegrationTest' } }
                 }
             }
         }
@@ -80,47 +60,40 @@ pipeline {
             steps {
                 dir('nakil-sistemi') {
                     script {
-                        echo '🐳 Restarting Docker...'
                         bat 'docker-compose down --remove-orphans'
-                        bat 'docker-compose build --no-cache app'
+                        bat 'docker-compose build app'
                         bat 'docker-compose up -d'
-
-                        echo '⏳ Waiting for app (Smart Check)...'
-                        // Loops until app is ready (max 2 mins)
-                        timeout(time: 2, unit: 'MINUTES') {
-                            waitUntil {
-                                script {
-                                    try {
-                                        // Checks if the app is alive
-                                        def status = bat(returnStdout: true, script: 'curl -s -o nul -w "%{http_code}" http://localhost:8080/mahkum-nakil/actuator/health').trim()
-                                        return status == '200'
-                                    } catch (Exception e) {
-                                        return false
-                                    }
-                                }
-                            }
-                        }
-                        echo '✅ App is UP!'
+                        echo '⏳ Waiting for system to stabilize...'
+                        sleep 30 // Simple wait for Windows
                     }
                 }
             }
         }
 
         // --- 6. Selenium Test Scenarios (55 Points) ---
+        // We use your Arac and Dashboard tests to create the 3 required scenarios
         stage('6. Selenium Scenarios') {
             stages {
-                stage('Scenario Set A: Arac') {
+                stage('Scenario 1: Vehicle Listing') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all Arac Selenium tests
-                            bat 'mvn test -Dtest=AracSeleniumTest'
+                            // Runs only the listing test method
+                            bat 'mvn test -Dtest=AracSeleniumTest#testAracListPageLoads'
                         }
                     }
                 }
-                stage('Scenario Set B: Dashboard') {
+                stage('Scenario 2: New Vehicle Entry') {
                     steps {
                         dir('nakil-sistemi') {
-                            // Runs all Dashboard Selenium tests
+                            // Runs only the add test method
+                            bat 'mvn test -Dtest=AracSeleniumTest#testAddNewArac'
+                        }
+                    }
+                }
+                stage('Scenario 3: Dashboard Overview') {
+                    steps {
+                        dir('nakil-sistemi') {
+                            // Runs the dashboard class
                             bat 'mvn test -Dtest=DashboardSeleniumTest'
                         }
                     }
@@ -131,6 +104,7 @@ pipeline {
 
     post {
         always {
+            // This generates the "Status Reported" part of the assignment
             junit allowEmptyResults: true, testResults: 'nakil-sistemi/target/surefire-reports/*.xml'
         }
     }
